@@ -22,24 +22,46 @@ using namespace gl;
 ApplicationSolar::ApplicationSolar(std::string const& resource_path)
  :Application{resource_path}
  ,planet_object{}
-{
+{ 
   initializeGeometry();
   initializeShaderPrograms();
 }
 
-void ApplicationSolar::render() const {
-  // bind shader to upload uniforms
-  glUseProgram(m_shaders.at("planet").handle);
+void ApplicationSolar::upload_planet_transforms(struct planet pl) const {  
+  //Calculate model and normal matrices and render
+  glm::fmat4 size = glm::scale(glm::mat4{}, glm::vec3{pl.size}); 
+  glm::fmat4 model_matrix = glm::rotate(size, float(glfwGetTime()) * pl.speed, glm::fvec3{0.0f, pl.rotation, 0.0f});  
+  model_matrix = glm::translate(model_matrix, glm::fvec3{0.0f, 0.0f, -pl.distance});
+  glm::fmat4 normal_matrix = glm::inverseTranspose(glm::inverse(m_view_transform) * model_matrix);  
+  
+  render(model_matrix, normal_matrix);
 
-  glm::fmat4 model_matrix = glm::rotate(glm::fmat4{}, float(glfwGetTime()), glm::fvec3{0.0f, 1.0f, 0.0f});
-  model_matrix = glm::translate(model_matrix, glm::fvec3{0.0f, 0.0f, -1.0f});
+  //Create moon for earth distinguishing by size
+  if(pl.size == 1.0f)
+  {
+
+    glm::mat4 MoonSize = glm::scale(model_matrix, glm::vec3{ 0.2f });
+    glm::mat4 model_matrix = glm::rotate(MoonSize, float(glfwGetTime()), glm::vec3{ 0.0f, 1.0f, 0.0f }); // axis of rotation
+    model_matrix = glm::translate(model_matrix, glm::vec3{ 0.0f, 0.0f, -8.0f }); // radius length
+    glm::mat4 normal_matrix = glm::inverseTranspose(glm::inverse(m_view_transform) * model_matrix);
+
+    render(model_matrix, normal_matrix);
+  }
+}
+void ApplicationSolar::render(glm::fmat4 model_matrix, glm::fmat4 normal_matrix) const {  
+  // bind shader to upload uniforms
+  glUseProgram(m_shaders.at("planet").handle); 
+
+  
   glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ModelMatrix"),
                      1, GL_FALSE, glm::value_ptr(model_matrix));
 
   // extra matrix for normal transformation to keep them orthogonal to surface
-  glm::fmat4 normal_matrix = glm::inverseTranspose(glm::inverse(m_view_transform) * model_matrix);
+  
   glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("NormalMatrix"),
                      1, GL_FALSE, glm::value_ptr(normal_matrix));
+
+
 
   // bind the VAO to draw
   glBindVertexArray(planet_object.vertex_AO);
@@ -143,5 +165,8 @@ ApplicationSolar::~ApplicationSolar() {
 
 // exe entry point
 int main(int argc, char* argv[]) {
+
   Launcher::run<ApplicationSolar>(argc, argv);
+
 }
+

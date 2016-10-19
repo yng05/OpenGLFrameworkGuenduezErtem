@@ -2,6 +2,8 @@
 #define APPLICATION_HPP
 
 #include "structs.hpp"
+#include "launcher.hpp"
+
 
 #include <glm/gtc/type_precision.hpp>
 
@@ -25,7 +27,16 @@ class Application {
   // 
   virtual std::map<std::string, shader_program>& getShaderPrograms();
   // draw all objects
-  virtual void render() const = 0;
+  struct planet
+  {
+    float distance;
+    float speed;
+    float size; 
+    float rotation;   
+  };
+
+  virtual void upload_planet_transforms(struct planet) const = 0;
+
 
  protected:
   void updateUniformLocations();

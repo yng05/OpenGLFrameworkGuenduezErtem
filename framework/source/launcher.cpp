@@ -30,10 +30,11 @@ std::string resourcePath(int argc, char* argv[]);
 void glsl_error(int error, const char* description);
 void watch_gl_errors(bool activate = true);
 
+
 Launcher::Launcher(int argc, char* argv[]) 
  :m_camera_fov{glm::radians(60.0f)}
- ,m_window_width{640u}
- ,m_window_height{480u}
+ ,m_window_width{2048u}
+ ,m_window_height{960u}
  ,m_window{nullptr}
  ,m_last_second_time{0.0}
  ,m_frames_per_second{0u}
@@ -107,6 +108,8 @@ void Launcher::initialize() {
   // activate error checking after each gl function call
   watch_gl_errors();
 }
+
+const float earth_size = 1.0f;
  
 void Launcher::mainLoop() {
   // do before framebuffer_resize call as it requires the projection uniform location
@@ -124,7 +127,80 @@ void Launcher::mainLoop() {
     // clear buffer
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // draw geometry
-    m_application->render();
+    std::vector<Application::planet> planets;
+
+    //Push back new subject created with default constructor.
+    planets.push_back(Application::planet());
+    planets.push_back(Application::planet());
+    planets.push_back(Application::planet());
+    planets.push_back(Application::planet());
+    planets.push_back(Application::planet());
+    planets.push_back(Application::planet());
+    planets.push_back(Application::planet());
+    planets.push_back(Application::planet());
+    planets.push_back(Application::planet());
+    
+    //Assign every value to simulate original distance, size, speed and rotation of planets
+
+    //Sun
+    planets[0].distance = 0.0f;
+    planets[0].size = 7.0f;
+    planets[0].speed = 0.0f;
+    planets[0].rotation = 1.0f;
+
+    //Mercury
+    planets[1].distance = 8.0f;
+    planets[1].size = earth_size * 0.7f;
+    planets[1].speed = 2.5f;
+    planets[1].rotation = 1.0f;
+
+    //venus 
+    planets[2].distance = 9.0f;
+    planets[2].size = earth_size * 0.9f;
+    planets[2].speed = 2.0f;
+    planets[2].rotation = 1.0f;
+
+    //earth
+    planets[3].distance = 10.0f;
+    planets[3].size = earth_size;
+    planets[3].speed = 1.2f;
+    planets[3].rotation = 1.0f;    
+
+    //mars
+    planets[4].distance = 11.0f;
+    planets[4].size = earth_size * 0.5f;
+    planets[4].speed = 1.0f;
+    planets[4].rotation = 1.0f;
+    //jupiter
+    planets[5].distance = 15.0f;
+    planets[5].size = earth_size * 1.4f;
+    planets[5].speed = 0.8f;
+    planets[5].rotation = 1.0f;
+    //saturn
+    planets[6].distance = 18.0f;
+    planets[6].size = earth_size * 1.3f;
+    planets[6].speed = 0.7f;
+    planets[6].rotation = 1.0f;
+    //uranus
+    planets[7].distance = 14.0f;
+    planets[7].size = earth_size * 3.0f;
+    planets[7].speed = 0.5f;
+    planets[7].rotation = 1.0f;
+    //neptun
+    planets[8].distance = 15.0f;
+    planets[8].size = earth_size * 1.1f;
+    planets[8].speed = 0.4f;
+    planets[8].rotation = 1.0f;
+
+    //Iterate the container which holds the sun and planets and send
+    //each to upload_planet_transforms to set objects and render
+    for(std::vector<Application::planet>::iterator it = planets.begin(); it != planets.end(); ++it) {
+    /* std::cout << *it; ... */
+      Application::planet pl = *it;
+      m_application->upload_planet_transforms(pl);
+    }
+
+    
     // swap draw buffer to front
     glfwSwapBuffers(m_window);
     // display fps
