@@ -21,7 +21,7 @@ class ApplicationSolar : public Application {
   void keyCallback(int key, int scancode, int action, int mods);
   // draw all objects
   void upload_planet_transforms(struct planet pl) const;
-  void render(glm::fmat4 model_matrix, glm::fmat4 normal_matrix) const;
+  void render() const;
 
  protected:
   void initializeShaderPrograms();

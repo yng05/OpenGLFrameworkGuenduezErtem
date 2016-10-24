@@ -18,6 +18,15 @@ using namespace gl;
 #include <glm/gtc/type_ptr.hpp>
 
 #include <iostream>
+    // draw all objects
+struct planet
+{
+  float distance;
+  float speed;
+  float size; 
+  float rotation;  
+  std::string name;  
+};
 
 ApplicationSolar::ApplicationSolar(std::string const& resource_path)
  :Application{resource_path}
@@ -28,29 +37,18 @@ ApplicationSolar::ApplicationSolar(std::string const& resource_path)
 }
 
 void ApplicationSolar::upload_planet_transforms(struct planet pl) const {  
+  std::cout << pl.name + ":" + std::to_string(pl.size) + "---" + std::to_string(pl.speed)+ "---" + std::to_string(pl.distance)+ "---"+ std::to_string(pl.rotation) + "\n";
+  
+  // bind shader to upload uniforms
+  glUseProgram(m_shaders.at("planet").handle); 
+
   //Calculate model and normal matrices and render
   glm::fmat4 size = glm::scale(glm::mat4{}, glm::vec3{pl.size}); 
   glm::fmat4 model_matrix = glm::rotate(size, float(glfwGetTime()) * pl.speed, glm::fvec3{0.0f, pl.rotation, 0.0f});  
   model_matrix = glm::translate(model_matrix, glm::fvec3{0.0f, 0.0f, -pl.distance});
   glm::fmat4 normal_matrix = glm::inverseTranspose(glm::inverse(m_view_transform) * model_matrix);  
   
-  render(model_matrix, normal_matrix);
-
-  //Create moon for earth distinguishing by size
-  if(pl.size == 1.0f)
-  {
-
-    glm::mat4 MoonSize = glm::scale(model_matrix, glm::vec3{ 0.2f });
-    glm::mat4 model_matrix = glm::rotate(MoonSize, float(glfwGetTime()), glm::vec3{ 0.0f, 1.0f, 0.0f }); // axis of rotation
-    model_matrix = glm::translate(model_matrix, glm::vec3{ 0.0f, 0.0f, -8.0f }); // radius length
-    glm::mat4 normal_matrix = glm::inverseTranspose(glm::inverse(m_view_transform) * model_matrix);
-
-    render(model_matrix, normal_matrix);
-  }
-}
-void ApplicationSolar::render(glm::fmat4 model_matrix, glm::fmat4 normal_matrix) const {  
-  // bind shader to upload uniforms
-  glUseProgram(m_shaders.at("planet").handle); 
+  
 
   
   glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ModelMatrix"),
@@ -68,6 +66,118 @@ void ApplicationSolar::render(glm::fmat4 model_matrix, glm::fmat4 normal_matrix)
 
   // draw bound vertex array using bound shader
   glDrawElements(planet_object.draw_mode, planet_object.num_elements, model::INDEX.type, NULL);
+
+  //Create moon for earth distinguishing by size
+  if(pl.size == 1.0f)
+  {
+
+    glm::mat4 MoonSize = glm::scale(model_matrix, glm::vec3{ 0.2f });
+    glm::mat4 model_matrix = glm::rotate(MoonSize, float(glfwGetTime()), glm::vec3{ 0.0f, 1.0f, 0.0f }); // axis of rotation
+    model_matrix = glm::translate(model_matrix, glm::vec3{ 0.0f, 0.0f, -8.0f }); // radius length
+    glm::mat4 normal_matrix = glm::inverseTranspose(glm::inverse(m_view_transform) * model_matrix);
+
+    glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ModelMatrix"),
+                     1, GL_FALSE, glm::value_ptr(model_matrix));
+
+  // extra matrix for normal transformation to keep them orthogonal to surface
+  
+    glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("NormalMatrix"),
+                     1, GL_FALSE, glm::value_ptr(normal_matrix));
+
+    // bind the VAO to draw
+    glBindVertexArray(planet_object.vertex_AO);
+
+    // draw bound vertex array using bound shader
+    glDrawElements(planet_object.draw_mode, planet_object.num_elements, model::INDEX.type, NULL);
+  }
+}
+void ApplicationSolar::render() const {  
+// draw geometry
+    std::vector<struct planet> planets;
+
+    const float earth_size = 1.0f;
+
+    //Push back new subject created with default constructor.
+    planets.push_back(planet());
+    planets.push_back(planet());
+    planets.push_back(planet());
+    planets.push_back(planet());
+    planets.push_back(planet());
+    planets.push_back(planet());
+    planets.push_back(planet());
+    planets.push_back(planet());
+    planets.push_back(planet());
+    
+    //Assign every value to simulate original distance, size, speed and rotation of planets
+
+    //Sun
+    planets[0].distance = 0.0f;
+    planets[0].size = 7.0f;
+    planets[0].speed = 0.0f;
+    planets[0].rotation = 1.0f;
+    planets[0].name = "Sun";
+
+    //Mercury
+    planets[1].distance = 8.0f;
+    planets[1].size = earth_size * 0.7f;
+    planets[1].speed = 2.5f;
+    planets[1].rotation = 1.0f;
+    planets[1].name = "Mercury";
+
+    //venus 
+    planets[2].distance = 9.0f;
+    planets[2].size = earth_size * 0.9f;
+    planets[2].speed = 2.0f;
+    planets[2].rotation = 1.0f;
+    planets[2].name = "venus";
+
+    //earth
+    planets[3].distance = 10.0f;
+    planets[3].size = earth_size;
+    planets[3].speed = 1.2f;
+    planets[3].rotation = 1.0f;  
+    planets[3].name = "earth";  
+
+    //mars
+    planets[4].distance = 11.0f;
+    planets[4].size = earth_size * 0.5f;
+    planets[4].speed = 1.0f;
+    planets[4].rotation = 1.0f;
+    planets[4].name = "mars";
+    //jupiter
+    planets[5].distance = 15.0f;
+    planets[5].size = earth_size * 1.4f;
+    planets[5].speed = 0.8f;
+    planets[5].rotation = 1.0f;
+    planets[5].name = "jupiter";
+    //saturn
+    planets[6].distance = 18.0f;
+    planets[6].size = earth_size * 1.3f;
+    planets[6].speed = 0.7f;
+    planets[6].rotation = 1.0f;
+    planets[6].name = "saturn";
+    //uranus
+    planets[7].distance = 14.0f;
+    planets[7].size = earth_size * 3.0f;
+    planets[7].speed = 0.5f;
+    planets[7].rotation = 1.0f;
+    planets[7].name = "uranus";
+    //neptun
+    planets[8].distance = 15.0f;
+    planets[8].size = earth_size * 1.1f;
+    planets[8].speed = 0.4f;
+    planets[8].rotation = 1.0f;
+    planets[8].name = "neptun";
+
+    
+
+    //Iterate the container which holds the sun and planets and send
+    //each to upload_planet_transforms to set objects and render
+    for(std::vector<struct planet>::iterator it = planets.begin(); it != planets.end(); ++it) {    
+      struct planet pl = *it;
+      upload_planet_transforms(pl);      
+    }
+  
 }
 
 void ApplicationSolar::updateView() {
@@ -165,8 +275,6 @@ ApplicationSolar::~ApplicationSolar() {
 
 // exe entry point
 int main(int argc, char* argv[]) {
-
   Launcher::run<ApplicationSolar>(argc, argv);
-
 }
 

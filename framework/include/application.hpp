@@ -26,16 +26,8 @@ class Application {
   inline virtual void keyCallback(int key, int scancode, int action, int mods) {};
   // 
   virtual std::map<std::string, shader_program>& getShaderPrograms();
-  // draw all objects
-  struct planet
-  {
-    float distance;
-    float speed;
-    float size; 
-    float rotation;   
-  };
 
-  virtual void upload_planet_transforms(struct planet) const = 0;
+  virtual void render() const = 0;
 
 
  protected:
