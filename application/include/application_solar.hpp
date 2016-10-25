@@ -17,19 +17,26 @@ class ApplicationSolar : public Application {
   void uploadUniforms();
   // update projection matrix
   void updateProjection();
+  void updateProjectionStars();
   // react to key input
   void keyCallback(int key, int scancode, int action, int mods);
   // draw all objects
   void upload_planet_transforms(struct planet pl) const;
   void render() const;
+  void renderPlanets() const;
+  void renderStars() const;
 
  protected:
   void initializeShaderPrograms();
-  void initializeGeometry();
+  void initializeGeometry(model & model_);
+  void initializePlanets();
+  void initializeStars();
   void updateView();
+  void updateViewStars();
 
   // cpu representation of model
-  model_object planet_object;
+  model_object m_obj_planet;
+  model_object m_obj_star;
 };
 
 #endif
