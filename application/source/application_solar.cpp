@@ -25,7 +25,8 @@ struct planet
   float speed;
   float size; 
   float rotation;  
-  std::string name;  
+  std::string name;
+  glm::vec3 color;  
 };
 
 int number_of_stars;
@@ -61,7 +62,7 @@ void ApplicationSolar::upload_planet_transforms(struct planet pl) const {
   glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("NormalMatrix"),
                      1, GL_FALSE, glm::value_ptr(normal_matrix));
 
-
+  glUniform3f(m_shaders.at("planet").u_locs.at("ColorVec"), pl.color[0], pl.color[1], pl.color[2]);
 
   // bind the VAO to draw
   glBindVertexArray(m_obj_planet.vertex_AO);
@@ -85,6 +86,8 @@ void ApplicationSolar::upload_planet_transforms(struct planet pl) const {
   
     glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("NormalMatrix"),
                      1, GL_FALSE, glm::value_ptr(normal_matrix));
+
+    glUniform3f(m_shaders.at("planet").u_locs.at("ColorVec"), 1.0f, 1.0f, 1.0f);
 
     // bind the VAO to draw
     glBindVertexArray(m_obj_planet.vertex_AO);
@@ -182,6 +185,7 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("planet").u_locs["ModelMatrix"] = -1;
   m_shaders.at("planet").u_locs["ViewMatrix"] = -1;
   m_shaders.at("planet").u_locs["ProjectionMatrix"] = -1;
+  m_shaders.at("planet").u_locs["ColorVec"] = -1;
 
 
 
@@ -200,7 +204,7 @@ void ApplicationSolar::initializePlanets() {
     planets.push_back(planet());
     planets.push_back(planet());
     
-    //Assign every value to simulate original distance, size, speed and rotation of planets
+    //Assign every value to simulate original distance, size, speed, color and rotation of planets
 
     //Sun
     planets[0].distance = 0.0f;
@@ -208,6 +212,7 @@ void ApplicationSolar::initializePlanets() {
     planets[0].speed = 0.0f;
     planets[0].rotation = 1.0f;
     planets[0].name = "Sun";
+    planets[0].color = {0.96f,1.0f,0.0f};
 
     //Mercury
     planets[1].distance = 8.0f;
@@ -215,6 +220,7 @@ void ApplicationSolar::initializePlanets() {
     planets[1].speed = 2.5f;
     planets[1].rotation = 1.0f;
     planets[1].name = "Mercury";
+    planets[1].color = {0.86f,0.64f,0.80f};
 
     //venus 
     planets[2].distance = 9.0f;
@@ -222,6 +228,7 @@ void ApplicationSolar::initializePlanets() {
     planets[2].speed = 2.0f;
     planets[2].rotation = 1.0f;
     planets[2].name = "venus";
+    planets[2].color = {0.88f,0.85f,0.45f};
 
     //earth
     planets[3].distance = 10.0f;
@@ -229,6 +236,7 @@ void ApplicationSolar::initializePlanets() {
     planets[3].speed = 1.2f;
     planets[3].rotation = 1.0f;  
     planets[3].name = "earth";  
+    planets[3].color = {0.0f,0.22f,1.0f};
 
     //mars
     planets[4].distance = 11.0f;
@@ -236,30 +244,35 @@ void ApplicationSolar::initializePlanets() {
     planets[4].speed = 1.0f;
     planets[4].rotation = 1.0f;
     planets[4].name = "mars";
+    planets[4].color = {0.60f,0.70f,0.80f};
     //jupiter
     planets[5].distance = 15.0f;
     planets[5].size = earth_size * 1.4f;
     planets[5].speed = 0.8f;
     planets[5].rotation = 1.0f;
     planets[5].name = "jupiter";
+    planets[5].color = {0.69f,0.69f,0.69f};
     //saturn
     planets[6].distance = 18.0f;
     planets[6].size = earth_size * 1.3f;
     planets[6].speed = 0.7f;
     planets[6].rotation = 1.0f;
     planets[6].name = "saturn";
+    planets[6].color = {0.90f,0.13f,0.26f};
     //uranus
     planets[7].distance = 14.0f;
     planets[7].size = earth_size * 3.0f;
     planets[7].speed = 0.5f;
     planets[7].rotation = 1.0f;
     planets[7].name = "uranus";
+    planets[7].color = {0.65f,0.12f,0.56f};
     //neptun
     planets[8].distance = 15.0f;
     planets[8].size = earth_size * 1.1f;
     planets[8].speed = 0.4f;
     planets[8].rotation = 1.0f;
     planets[8].name = "neptun";
+    planets[8].color = {0.24f,0.48f,0.80f};
 
     model planet_model = model_loader::obj(m_resource_path + "models/sphere.obj", model::NORMAL);
     
