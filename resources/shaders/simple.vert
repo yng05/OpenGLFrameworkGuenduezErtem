@@ -16,6 +16,7 @@ out vec4 pass_Normal;
 out vec3 vertPos;
 out vec3 normalInt;
 out vec3 pass_Color;
+out vec3 sunPos;
 
 
 void main(void)
@@ -24,6 +25,8 @@ void main(void)
 
 	vec4 vertPos4 = ModelMatrix * vec4(in_Position, 1.0);
     vertPos = vec3((ViewMatrix * ModelMatrix) * vec4(in_Position,1.0));
+
+    sunPos = vec3((ViewMatrix) * vec4(vec3(0.0,0.0,0.0), 1.0f));
 
 	normalInt = vec3(NormalMatrix * vec4(in_Normal, 0.0));
 	pass_Color = ColorVec;
