@@ -25,18 +25,21 @@ class ApplicationSolar : public Application {
   void render() const;
   void renderPlanets() const;
   void renderStars() const;
+  void renderSkydome() const;
 
  protected:
   void initializeShaderPrograms();
   void initializeGeometry(model & model_);
   void initializePlanets();
   void initializeStars();
+  void initializeSkydome();
   void updateView();
   void updateViewStars();
 
   // cpu representation of model
   model_object m_obj_planet;
   model_object m_obj_star;
+  model_object m_obj_skydome;
 };
 
 #endif

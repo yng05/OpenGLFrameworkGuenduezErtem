@@ -32,7 +32,7 @@ void watch_gl_errors(bool activate = true);
 
 
 Launcher::Launcher(int argc, char* argv[]) 
- :m_camera_fov{glm::radians(60.0f)}
+ :m_camera_fov{glm::radians(80.0f)}
  ,m_window_width{2048u}
  ,m_window_height{960u}
  ,m_window{nullptr}

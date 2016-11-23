@@ -4,6 +4,7 @@
 #include "utils.hpp"
 #include "shader_loader.hpp"
 #include "model_loader.hpp"
+#include "texture_loader.hpp"
 
 #include <glbinding/gl/gl.h>
 // use gl definitions from glbinding 
@@ -19,6 +20,33 @@ using namespace gl;
 
 #include <iostream>
     // draw all objects
+
+struct texture {
+  texture(pixel_data dat)
+   :target{GL_TEXTURE_2D}
+   ,level{0}
+   ,internalFormat{0}
+   ,width{1024}
+   ,height{512}
+   ,border{0}
+   ,format{GL_NONE}
+   ,type{GL_NONE}   
+   ,data(dat)
+   ,texture_obj{0}
+  {}
+
+  GLenum target;
+  GLint level;
+  GLint internalFormat;
+  GLsizei width;
+  GLsizei height;
+  GLint border;
+  GLenum format;
+  GLenum type;
+  pixel_data data;
+  GLuint texture_obj;
+};
+
 struct planet
 {
   float distance;
@@ -26,24 +54,28 @@ struct planet
   float size; 
   float rotation;  
   std::string name;
-  glm::vec3 color;  
+  glm::vec3 color; 
+  int order; 
 };
 
 int number_of_stars;
 std::vector<struct planet> planets;
+std::vector<struct texture> planet_textures;
+std::vector<struct texture> other_textures;
 
 const float earth_size = 1.0f;
 
 ApplicationSolar::ApplicationSolar(std::string const& resource_path)
  :Application{resource_path}
- ,m_obj_planet{},m_obj_star{}
+ ,m_obj_planet{},m_obj_star{},m_obj_skydome{}
 {  
+  initializeSkydome();
   initializeStars();
   initializePlanets();
   initializeShaderPrograms();
 }
 
-void ApplicationSolar::upload_planet_transforms(struct planet pl) const {  
+void ApplicationSolar::upload_planet_transforms(struct planet pl) const {
   // bind shader to upload uniforms
   glUseProgram(m_shaders.at("planet").handle); 
 
@@ -63,6 +95,19 @@ void ApplicationSolar::upload_planet_transforms(struct planet pl) const {
                      1, GL_FALSE, glm::value_ptr(normal_matrix));
 
   glUniform3f(m_shaders.at("planet").u_locs.at("ColorVec"), pl.color[0], pl.color[1], pl.color[2]);
+
+  struct texture tex = planet_textures[pl.order];  
+
+  glActiveTexture(GL_TEXTURE0);
+  glGenTextures(1, &tex.texture_obj);
+  glBindTexture(tex.target, tex.texture_obj);
+
+  glTexParameteri(tex.target, GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+  glTexParameteri(tex.target, GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+  glUniform1i(m_shaders.at("planet").u_locs.at("Texture"), 0);
+
+  glTexImage2D(tex.target,0, GLint(GL_RGBA),tex.width, tex.height,0, GL_RGBA,GL_UNSIGNED_BYTE,tex.data.pixels.data());
+
 
   // bind the VAO to draw
   glBindVertexArray(m_obj_planet.vertex_AO);
@@ -89,6 +134,18 @@ void ApplicationSolar::upload_planet_transforms(struct planet pl) const {
 
     glUniform3f(m_shaders.at("planet").u_locs.at("ColorVec"), 1.0f, 1.0f, 1.0f);
 
+    struct texture tex = other_textures[1];  
+
+    glActiveTexture(GL_TEXTURE0);
+    glGenTextures(1, &tex.texture_obj);
+    glBindTexture(tex.target, tex.texture_obj);
+
+    glTexParameteri(tex.target, GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+    glTexParameteri(tex.target, GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+    glUniform1i(m_shaders.at("planet").u_locs.at("Texture"), 0);
+
+    glTexImage2D(tex.target,0, GLint(GL_RGBA),tex.width, tex.height,0, GL_RGBA,GL_UNSIGNED_BYTE,tex.data.pixels.data());
+
     // bind the VAO to draw
     glBindVertexArray(m_obj_planet.vertex_AO);
 
@@ -98,6 +155,7 @@ void ApplicationSolar::upload_planet_transforms(struct planet pl) const {
 }
 
 void ApplicationSolar::render() const {   
+    renderSkydome();
     renderStars();  
     renderPlanets();
 }
@@ -109,6 +167,40 @@ void ApplicationSolar::renderPlanets() const {
       struct planet pl = *it;
       upload_planet_transforms(pl);      
     }
+  
+}
+
+void ApplicationSolar::renderSkydome() const {   
+    glUseProgram(m_shaders.at("skydome").handle);
+
+    glm::fmat4 size = glm::scale(glm::mat4{}, glm::vec3{60.0f}); 
+    glm::fmat4 model_matrix = glm::rotate(size, 0.0f , glm::fvec3{0.0f, 0.1f, 0.0f});
+    model_matrix = glm::translate(model_matrix, glm::fvec3{0.0f, 0.0f, 0.0f});
+    glUniformMatrix4fv(m_shaders.at("skydome").u_locs.at("ModelMatrix"),
+                       1, GL_FALSE, glm::value_ptr(model_matrix));
+
+    // extra matrix for normal transformation to keep them orthogonal to surface
+    glm::fmat4 normal_matrix = glm::inverseTranspose(glm::inverse(m_view_transform) * model_matrix);
+    glUniformMatrix4fv(m_shaders.at("skydome").u_locs.at("NormalMatrix"),
+                       1, GL_FALSE, glm::value_ptr(normal_matrix));
+
+    struct texture tex = other_textures[0];
+
+    glActiveTexture(GL_TEXTURE0);
+    glGenTextures(1, &tex.texture_obj);
+    glBindTexture(tex.target, tex.texture_obj);
+
+    glTexParameteri(tex.target, GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+    glTexParameteri(tex.target, GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+
+    glTexImage2D(tex.target,0, GLint(GL_RGBA),tex.width, tex.height,0, GL_RGBA,GL_UNSIGNED_BYTE,tex.data.pixels.data());
+
+    // bind the VAO to draw
+    glBindVertexArray(m_obj_skydome.vertex_AO);
+
+    // draw bound vertex array using bound shader
+    glDrawElements(m_obj_skydome.draw_mode, m_obj_skydome.num_elements, model::INDEX.type, NULL);
+
   
 }
 
@@ -124,11 +216,17 @@ void ApplicationSolar::renderStars() const {
 
 void ApplicationSolar::updateView() {
   // vertices are transformed in camera space, so camera transform must be inverted
+
   glm::fmat4 view_matrix = glm::inverse(m_view_transform);
+      // upload matrix to gpu
+  glUseProgram(m_shaders.at("skydome").handle);  
+  glUniformMatrix4fv(m_shaders.at("skydome").u_locs.at("ViewMatrix"),
+                     1, GL_FALSE, glm::value_ptr(view_matrix));
   // upload matrix to gpu
   glUseProgram(m_shaders.at("planet").handle);  
   glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ViewMatrix"),
                      1, GL_FALSE, glm::value_ptr(view_matrix));
+
   glUseProgram(m_shaders.at("stars").handle);
   glUniformMatrix4fv(m_shaders.at("stars").u_locs.at("ViewMatrix"),
                      1, GL_FALSE, glm::value_ptr(view_matrix));
@@ -137,6 +235,9 @@ void ApplicationSolar::updateView() {
 
 void ApplicationSolar::updateProjection() {
   // upload matrix to gpu
+  glUseProgram(m_shaders.at("skydome").handle); 
+  glUniformMatrix4fv(m_shaders.at("skydome").u_locs.at("ProjectionMatrix"),
+                     1, GL_FALSE, glm::value_ptr(m_view_projection));
   glUseProgram(m_shaders.at("planet").handle); 
   glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ProjectionMatrix"),
                      1, GL_FALSE, glm::value_ptr(m_view_projection));
@@ -169,6 +270,15 @@ void ApplicationSolar::keyCallback(int key, int scancode, int action, int mods) 
 
 // load shader programs
 void ApplicationSolar::initializeShaderPrograms() {
+
+  m_shaders.emplace("skydome", shader_program{m_resource_path + "shaders/skydome.vert",
+                                           m_resource_path + "shaders/skydome.frag"});
+  // request uniform locations for shader program
+  m_shaders.at("skydome").u_locs["NormalMatrix"] = -1;
+  m_shaders.at("skydome").u_locs["ModelMatrix"] = -1;
+  m_shaders.at("skydome").u_locs["ViewMatrix"] = -1;
+  m_shaders.at("skydome").u_locs["ProjectionMatrix"] = -1;
+  m_shaders.at("skydome").u_locs["Texture"] = -1;
     // store shader program objects in container
   m_shaders.emplace("stars", shader_program{m_resource_path + "shaders/stars.vert",
                                            m_resource_path + "shaders/stars.frag"});
@@ -186,9 +296,7 @@ void ApplicationSolar::initializeShaderPrograms() {
   m_shaders.at("planet").u_locs["ViewMatrix"] = -1;
   m_shaders.at("planet").u_locs["ProjectionMatrix"] = -1;
   m_shaders.at("planet").u_locs["ColorVec"] = -1;
-
-
-
+  m_shaders.at("planet").u_locs["Texture"] = -1;
 
 }
 
@@ -203,6 +311,8 @@ void ApplicationSolar::initializePlanets() {
     planets.push_back(planet());
     planets.push_back(planet());
     planets.push_back(planet());
+
+    //planet_textures.push_back(texture const& texture(texture_loader::file(m_resource_path + "textures/sun.png")));
     
     //Assign every value to simulate original distance, size, speed, color and rotation of planets
 
@@ -211,16 +321,18 @@ void ApplicationSolar::initializePlanets() {
     planets[0].size = 7.0f;
     planets[0].speed = 0.0f;
     planets[0].rotation = 1.0f;
-    planets[0].name = "Sun";
+    planets[0].name = "sun";
     planets[0].color = {0.96f,1.0f,0.0f};
+    planets[0].order = 0;
 
     //Mercury
     planets[1].distance = 8.0f;
     planets[1].size = earth_size * 0.7f;
     planets[1].speed = 2.5f;
     planets[1].rotation = 1.0f;
-    planets[1].name = "Mercury";
+    planets[1].name = "mercury";
     planets[1].color = {0.86f,0.64f,0.80f};
+    planets[1].order = 1;
 
     //venus 
     planets[2].distance = 9.0f;
@@ -229,6 +341,7 @@ void ApplicationSolar::initializePlanets() {
     planets[2].rotation = 1.0f;
     planets[2].name = "venus";
     planets[2].color = {0.88f,0.85f,0.45f};
+    planets[2].order = 2;
 
     //earth
     planets[3].distance = 10.0f;
@@ -237,6 +350,7 @@ void ApplicationSolar::initializePlanets() {
     planets[3].rotation = 1.0f;  
     planets[3].name = "earth";  
     planets[3].color = {0.0f,0.22f,1.0f};
+    planets[3].order = 3;
 
     //mars
     planets[4].distance = 11.0f;
@@ -245,6 +359,7 @@ void ApplicationSolar::initializePlanets() {
     planets[4].rotation = 1.0f;
     planets[4].name = "mars";
     planets[4].color = {0.60f,0.70f,0.80f};
+    planets[4].order = 4;
     //jupiter
     planets[5].distance = 15.0f;
     planets[5].size = earth_size * 1.4f;
@@ -252,13 +367,15 @@ void ApplicationSolar::initializePlanets() {
     planets[5].rotation = 1.0f;
     planets[5].name = "jupiter";
     planets[5].color = {0.69f,0.69f,0.69f};
-    //saturn
+    planets[5].order = 5;
+    //satur
     planets[6].distance = 18.0f;
     planets[6].size = earth_size * 1.3f;
     planets[6].speed = 0.7f;
     planets[6].rotation = 1.0f;
     planets[6].name = "saturn";
     planets[6].color = {0.90f,0.13f,0.26f};
+    planets[6].order = 6;
     //uranus
     planets[7].distance = 14.0f;
     planets[7].size = earth_size * 3.0f;
@@ -266,15 +383,24 @@ void ApplicationSolar::initializePlanets() {
     planets[7].rotation = 1.0f;
     planets[7].name = "uranus";
     planets[7].color = {0.65f,0.12f,0.56f};
-    //neptun
+    planets[7].order = 7;
+    //neptu
     planets[8].distance = 15.0f;
     planets[8].size = earth_size * 1.1f;
     planets[8].speed = 0.4f;
     planets[8].rotation = 1.0f;
-    planets[8].name = "neptun";
+    planets[8].name = "neptune";
     planets[8].color = {0.24f,0.48f,0.80f};
+    planets[8].order = 8;
 
-    model planet_model = model_loader::obj(m_resource_path + "models/sphere.obj", model::NORMAL);
+    for (auto planet: planets) {
+        planet_textures.push_back(texture(texture_loader::file(m_resource_path + "textures/" + planet.name + ".png")));  
+    }
+
+    other_textures.push_back(texture(texture_loader::file(m_resource_path + "textures/moon.png")));  
+
+
+    model planet_model = model_loader::obj(m_resource_path + "models/sphere.obj", model::NORMAL | model::TEXCOORD);
     
     // generate vertex array object
     glGenVertexArrays(1, &m_obj_planet.vertex_AO);
@@ -296,7 +422,11 @@ void ApplicationSolar::initializePlanets() {
     glEnableVertexAttribArray(1);
     // second attribute is 3 floats with no offset & stride
     glVertexAttribPointer(1, model::NORMAL.components, (gl::GLenum) model::NORMAL.type, GL_FALSE, planet_model.vertex_bytes, planet_model.offsets[model::NORMAL]);
-
+    // activate second attribute on gpu
+    glEnableVertexAttribArray(2);
+    // second attribute is 3 floats with no offset & stride
+    glVertexAttribPointer(2, model::TEXCOORD.components, (gl::GLenum) model::TEXCOORD.type, GL_FALSE, planet_model.vertex_bytes, planet_model.offsets[model::TEXCOORD]);
+ 
      // generate generic buffer
     glGenBuffers(1, &m_obj_planet.element_BO);
     // bind this as an vertex array buffer containing all attributes
@@ -309,6 +439,49 @@ void ApplicationSolar::initializePlanets() {
     m_obj_planet.draw_mode = GL_TRIANGLES;
     // transfer number of indices to model object 
     m_obj_planet.num_elements = GLsizei(planet_model.indices.size()); 
+}
+void ApplicationSolar::initializeSkydome() {
+  
+    other_textures.push_back(texture(texture_loader::file(m_resource_path + "textures/skydome.png")));     
+
+    model planet_model = model_loader::obj(m_resource_path + "models/sphere.obj", model::NORMAL | model::TEXCOORD);
+
+    // generate vertex array object
+    glGenVertexArrays(1, &m_obj_skydome.vertex_AO);
+    // bind the array for attaching buffers
+    glBindVertexArray(m_obj_skydome.vertex_AO);
+
+    // generate generic buffer
+    glGenBuffers(1, &m_obj_skydome.vertex_BO);
+    // bind this as an vertex array buffer containing all attributes
+    glBindBuffer(GL_ARRAY_BUFFER, m_obj_skydome.vertex_BO);
+    // configure currently bound array buffer
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * planet_model.data.size(), planet_model.data.data(), GL_STATIC_DRAW);
+
+    // activate first attribute on gpu
+    glEnableVertexAttribArray(0);
+    // first attribute is 3 floats with no offset & stride
+    glVertexAttribPointer(0, model::POSITION.components, model::POSITION.type, GL_FALSE, planet_model.vertex_bytes, planet_model.offsets[model::POSITION]);
+    // activate second attribute on gpu
+    glEnableVertexAttribArray(1);
+    // second attribute is 3 floats with no offset & stride
+    glVertexAttribPointer(1, model::NORMAL.components, model::NORMAL.type, GL_FALSE, planet_model.vertex_bytes, planet_model.offsets[model::NORMAL]);
+    // activate second attribute on gpu
+    glEnableVertexAttribArray(2);
+    // second attribute is 3 floats with no offset & stride
+    glVertexAttribPointer(2, model::TEXCOORD.components, (gl::GLenum) model::TEXCOORD.type, GL_FALSE, planet_model.vertex_bytes, planet_model.offsets[model::TEXCOORD]);
+
+     // generate generic buffer
+    glGenBuffers(1, &m_obj_skydome.element_BO);
+    // bind this as an vertex array buffer containing all attributes
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_obj_skydome.element_BO);
+    // configure currently bound array buffer
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, model::INDEX.size * planet_model.indices.size(), planet_model.indices.data(), GL_STATIC_DRAW);
+
+    // store type of primitive to draw
+    m_obj_skydome.draw_mode = GL_TRIANGLES;
+    // transfer number of indices to model object 
+    m_obj_skydome.num_elements = GLsizei(planet_model.indices.size());
 }
 
 void ApplicationSolar::initializeStars() {
@@ -331,7 +504,7 @@ void ApplicationSolar::initializeStars() {
   }
   //Load stored values in a model object and write those in buffer
   model star_model = {stars, model::POSITION | model::NORMAL};
-// generate vertex array object
+  // generate vertex array object
   glGenVertexArrays(1, &m_obj_star.vertex_AO);
   // bind the array for attaching buffers
   glBindVertexArray(m_obj_star.vertex_AO);
@@ -358,8 +531,6 @@ void ApplicationSolar::initializeStars() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_obj_star.element_BO);
   // configure currently bound array buffer
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, model::INDEX.size * star_model.indices.size(), star_model.indices.data(), GL_STATIC_DRAW);
-
-
   
 }
 

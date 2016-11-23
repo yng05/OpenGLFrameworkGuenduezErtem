@@ -3,6 +3,7 @@
 // vertex attributes of VAO
 layout(location=0) in vec3 in_Position;
 layout(location=1) in vec3 in_Normal;
+layout(location=2) in vec2 in_Texcoord;
 
 //Matrix Uniforms as specified with glUniformMatrix4fv
 uniform mat4 ModelMatrix;
@@ -17,7 +18,7 @@ out vec3 vertPos;
 out vec3 normalInt;
 out vec3 pass_Color;
 out vec3 sunPos;
-
+out vec2 pass_TexCoord;
 
 void main(void)
 {
@@ -30,4 +31,5 @@ void main(void)
 
 	normalInt = vec3(NormalMatrix * vec4(in_Normal, 0.0));
 	pass_Color = ColorVec;
+	pass_TexCoord = in_Texcoord;
 }
