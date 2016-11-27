@@ -5,6 +5,7 @@
 #include "shader_loader.hpp"
 #include "model_loader.hpp"
 #include "texture_loader.hpp"
+#include "pixel_data.hpp"
 
 #include <glbinding/gl/gl.h>
 // use gl definitions from glbinding 
@@ -21,31 +22,17 @@ using namespace gl;
 #include <iostream>
     // draw all objects
 
-struct texture {
-  texture(pixel_data dat)
-   :target{GL_TEXTURE_2D}
-   ,level{0}
-   ,internalFormat{0}
-   ,width{1024}
-   ,height{512}
-   ,border{0}
-   ,format{GL_NONE}
-   ,type{GL_NONE}   
-   ,data(dat)
-   ,texture_obj{0}
+struct texture_obj {
+  texture_obj (pixel_data const& t)
+   : tex(t)
   {}
 
-  GLenum target;
-  GLint level;
-  GLint internalFormat;
-  GLsizei width;
-  GLsizei height;
-  GLint border;
-  GLenum format;
-  GLenum type;
-  pixel_data data;
-  GLuint texture_obj;
+  GLenum context = GL_TEXTURE0;
+  GLenum target = GL_TEXTURE_2D;
+  GLuint tex_obj = 0;
+  pixel_data tex;
 };
+
 
 struct planet
 {
@@ -55,13 +42,13 @@ struct planet
   float rotation;  
   std::string name;
   glm::vec3 color; 
-  int order; 
+  int order;
 };
 
 int number_of_stars;
 std::vector<struct planet> planets;
-std::vector<struct texture> planet_textures;
-std::vector<struct texture> other_textures;
+std::vector<struct texture_obj> planet_textures;
+std::vector<struct texture_obj> other_textures;
 
 const float earth_size = 1.0f;
 
@@ -69,9 +56,9 @@ ApplicationSolar::ApplicationSolar(std::string const& resource_path)
  :Application{resource_path}
  ,m_obj_planet{},m_obj_star{},m_obj_skydome{}
 {  
+  initializePlanets();
   initializeSkydome();
   initializeStars();
-  initializePlanets();
   initializeShaderPrograms();
 }
 
@@ -96,17 +83,10 @@ void ApplicationSolar::upload_planet_transforms(struct planet pl) const {
 
   glUniform3f(m_shaders.at("planet").u_locs.at("ColorVec"), pl.color[0], pl.color[1], pl.color[2]);
 
-  struct texture tex = planet_textures[pl.order];  
-
+  
   glActiveTexture(GL_TEXTURE0);
-  glGenTextures(1, &tex.texture_obj);
-  glBindTexture(tex.target, tex.texture_obj);
-
-  glTexParameteri(tex.target, GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-  glTexParameteri(tex.target, GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+  glBindTexture(planet_textures[pl.order].target,planet_textures[pl.order].tex_obj);
   glUniform1i(m_shaders.at("planet").u_locs.at("Texture"), 0);
-
-  glTexImage2D(tex.target,0, GLint(GL_RGBA),tex.width, tex.height,0, GL_RGBA,GL_UNSIGNED_BYTE,tex.data.pixels.data());
 
 
   // bind the VAO to draw
@@ -134,17 +114,9 @@ void ApplicationSolar::upload_planet_transforms(struct planet pl) const {
 
     glUniform3f(m_shaders.at("planet").u_locs.at("ColorVec"), 1.0f, 1.0f, 1.0f);
 
-    struct texture tex = other_textures[1];  
-
     glActiveTexture(GL_TEXTURE0);
-    glGenTextures(1, &tex.texture_obj);
-    glBindTexture(tex.target, tex.texture_obj);
-
-    glTexParameteri(tex.target, GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-    glTexParameteri(tex.target, GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+    glBindTexture(other_textures[0].target,other_textures[0].tex_obj);
     glUniform1i(m_shaders.at("planet").u_locs.at("Texture"), 0);
-
-    glTexImage2D(tex.target,0, GLint(GL_RGBA),tex.width, tex.height,0, GL_RGBA,GL_UNSIGNED_BYTE,tex.data.pixels.data());
 
     // bind the VAO to draw
     glBindVertexArray(m_obj_planet.vertex_AO);
@@ -184,16 +156,9 @@ void ApplicationSolar::renderSkydome() const {
     glUniformMatrix4fv(m_shaders.at("skydome").u_locs.at("NormalMatrix"),
                        1, GL_FALSE, glm::value_ptr(normal_matrix));
 
-    struct texture tex = other_textures[0];
-
     glActiveTexture(GL_TEXTURE0);
-    glGenTextures(1, &tex.texture_obj);
-    glBindTexture(tex.target, tex.texture_obj);
-
-    glTexParameteri(tex.target, GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-    glTexParameteri(tex.target, GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-
-    glTexImage2D(tex.target,0, GLint(GL_RGBA),tex.width, tex.height,0, GL_RGBA,GL_UNSIGNED_BYTE,tex.data.pixels.data());
+    glBindTexture(other_textures[1].target,other_textures[1].tex_obj);
+    glUniform1i(m_shaders.at("skydome").u_locs.at("Texture"), 0);
 
     // bind the VAO to draw
     glBindVertexArray(m_obj_skydome.vertex_AO);
@@ -394,10 +359,56 @@ void ApplicationSolar::initializePlanets() {
     planets[8].order = 8;
 
     for (auto planet: planets) {
-        planet_textures.push_back(texture(texture_loader::file(m_resource_path + "textures/" + planet.name + ".png")));  
+        planet_textures.push_back(texture_loader::file(m_resource_path + "textures/" + planet.name + ".png"));
     }
 
-    other_textures.push_back(texture(texture_loader::file(m_resource_path + "textures/moon.png")));  
+    for (auto planet: planets){
+      glActiveTexture(GL_TEXTURE0);
+
+      // generate a new texture object
+      glGenTextures(1, &planet_textures[planet.order].tex_obj);
+
+      // bind the texture to the current context and target
+      glBindTexture(planet_textures[planet.order].target, planet_textures[planet.order].tex_obj);
+
+      // set texture sampling parameters
+      glTexParameteri(planet_textures[planet.order].target, GL_TEXTURE_MIN_FILTER, GLint(GL_LINEAR));
+      glTexParameteri(planet_textures[planet.order].target, GL_TEXTURE_MAG_FILTER, GLint(GL_LINEAR));
+
+      glTexImage2D(planet_textures[planet.order].target,
+        0, // mipmaps
+        GLint(GL_RGBA),
+        planet_textures[planet.order].tex.width, planet_textures[planet.order].tex.height,
+        0, // no border
+        GL_RGBA,
+        planet_textures[planet.order].tex.channel_type,
+        planet_textures[planet.order].tex.pixels.data()
+      );
+    }
+
+    other_textures.push_back(texture_loader::file(m_resource_path + "textures/moon.png")); 
+
+    glActiveTexture(GL_TEXTURE0);
+
+      // generate a new texture object
+      glGenTextures(1, &other_textures[0].tex_obj);
+
+      // bind the texture to the current context and target
+      glBindTexture(other_textures[0].target, other_textures[0].tex_obj);
+
+      // set texture sampling parameters
+      glTexParameteri(other_textures[0].target, GL_TEXTURE_MIN_FILTER, GLint(GL_LINEAR));
+      glTexParameteri(other_textures[0].target, GL_TEXTURE_MAG_FILTER, GLint(GL_LINEAR));
+
+      glTexImage2D(other_textures[0].target,
+        0, // mipmaps
+        GLint(GL_RGBA),
+        other_textures[0].tex.width, other_textures[0].tex.height,
+        0, // no border
+        GL_RGBA,
+        other_textures[0].tex.channel_type,
+        other_textures[0].tex.pixels.data()
+      ); 
 
 
     model planet_model = model_loader::obj(m_resource_path + "models/sphere.obj", model::NORMAL | model::TEXCOORD);
@@ -442,7 +453,29 @@ void ApplicationSolar::initializePlanets() {
 }
 void ApplicationSolar::initializeSkydome() {
   
-    other_textures.push_back(texture(texture_loader::file(m_resource_path + "textures/skydome.png")));     
+    other_textures.push_back(texture_loader::file(m_resource_path + "textures/skydome.png"));  
+
+    glActiveTexture(GL_TEXTURE0);
+
+      // generate a new texture object
+      glGenTextures(1, &other_textures[1].tex_obj);
+
+      // bind the texture to the current context and target
+      glBindTexture(other_textures[1].target, other_textures[1].tex_obj);
+
+      // set texture sampling parameters
+      glTexParameteri(other_textures[1].target, GL_TEXTURE_MIN_FILTER, GLint(GL_LINEAR));
+      glTexParameteri(other_textures[1].target, GL_TEXTURE_MAG_FILTER, GLint(GL_LINEAR));
+
+      glTexImage2D(other_textures[1].target,
+        0, // mipmaps
+        GLint(GL_RGBA),
+        other_textures[1].tex.width, other_textures[1].tex.height,
+        0, // no border
+        GL_RGBA,
+        other_textures[1].tex.channel_type,
+        other_textures[1].tex.pixels.data()
+      );  
 
     model planet_model = model_loader::obj(m_resource_path + "models/sphere.obj", model::NORMAL | model::TEXCOORD);
 
