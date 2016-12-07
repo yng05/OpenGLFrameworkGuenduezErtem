@@ -26,6 +26,7 @@ class ApplicationSolar : public Application {
   void renderPlanets() const;
   void renderStars() const;
   void renderSkydome() const;
+  void renderScreenQuad() const;
 
  protected:
   void initializeShaderPrograms();
@@ -33,6 +34,9 @@ class ApplicationSolar : public Application {
   void initializePlanets();
   void initializeStars();
   void initializeSkydome();
+  void initializeRenderBuffer(GLsizei width, GLsizei height);
+  void initializeFrameBuffers(GLsizei width, GLsizei height);
+  void initializeScreenQuadGeometry();
   void updateView();
   void updateViewStars();
 
